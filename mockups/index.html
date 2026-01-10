@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dapr Flight Tracker - Mockup</title>
+    <link rel="stylesheet" href="styles.css">
+    <!-- Font for UI -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <!-- 1. Background Map (Cesium Placeholder) -->
+    <div id="cesiumContainer">
+        <!-- In real app, Cesium canvas goes here -->
+    </div>
+
+    <!-- 2. HUD Layer (Floating Overlays) -->
+    <div class="hud-layer">
+        
+        <!-- Emergency Alert Toast (Hidden by default in real app, shown here for demo) -->
+        <div class="toast-container">
+            <div class="alert-toast">
+                <span>⚠️ SQUAWK 7700 DETECTED</span>
+                <span style="font-weight: normal; opacity: 0.8;">Flight UA921 (United)</span>
+            </div>
+        </div>
+
+        <!-- Left Panel: Fleet Statistics -->
+        <div class="glass-panel top-left">
+            <h2>Active Fleet Stats</h2>
+            <div class="stats-grid">
+                <div class="stat-row">
+                    <div class="airline-name"><div class="airline-dot dot-delta"></div>Delta</div>
+                    <div class="count">142</div>
+                </div>
+                <div class="stat-row">
+                    <div class="airline-name"><div class="airline-dot dot-united"></div>United</div>
+                    <div class="count">98</div>
+                </div>
+                <div class="stat-row">
+                    <div class="airline-name"><div class="airline-dot dot-southwest"></div>Southwest</div>
+                    <div class="count">215</div>
+                </div>
+                <div class="stat-row">
+                    <div class="airline-name"><div class="airline-dot dot-qantas"></div>Qantas</div>
+                    <div class="count">12</div>
+                </div>
+                <div class="stat-row">
+                    <div class="airline-name"><div class="airline-dot dot-emirates"></div>Emirates</div>
+                    <div class="count">45</div>
+                </div>
+                <div class="stat-row" style="margin-top: 8px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 8px;">
+                    <div class="airline-name">Total Active</div>
+                    <div class="count" style="color: var(--accent-color)">512</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Panel: Airport Arrivals -->
+        <div class="glass-panel top-right">
+            <h2>Inbound Flights (KJFK)</h2>
+            <div class="arrival-list">
+                <div class="arrival-item">
+                    <div class="flight-info">
+                        <div class="flight-code">DL442</div>
+                        <div class="airline-sub">Delta Air Lines</div>
+                    </div>
+                    <div class="time-to-land">4 mins</div>
+                </div>
+                <div class="arrival-item">
+                    <div class="flight-info">
+                        <div class="flight-code">BA112</div>
+                        <div class="airline-sub">British Airways</div>
+                    </div>
+                    <div class="time-to-land">12 mins</div>
+                </div>
+                <div class="arrival-item">
+                    <div class="flight-info">
+                        <div class="flight-code">EK201</div>
+                        <div class="airline-sub">Emirates</div>
+                    </div>
+                    <div class="time-to-land">28 mins</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Label -->
+        <div class="bottom-center">
+            <p style="color: rgba(255,255,255,0.4); font-size: 12px; letter-spacing: 1px;">POWERED BY DAPR</p>
+        </div>
+
+    </div>
+
+</body>
+</html>

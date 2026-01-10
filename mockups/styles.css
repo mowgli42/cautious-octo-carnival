@@ -1,0 +1,181 @@
+:root {
+    --glass-bg: rgba(20, 30, 48, 0.75);
+    --glass-border: rgba(255, 255, 255, 0.1);
+    --text-primary: #ffffff;
+    --text-secondary: #a0a0a0;
+    --accent-color: #00d4ff;
+    --danger-color: #ff4b4b;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    overflow: hidden;
+    background-color: #000; /* Fallback for map */
+    color: var(--text-primary);
+}
+
+/* Cesium Placeholder */
+#cesiumContainer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-image: url('https://upload.wikimedia.org/wikipedia/commons/thumb/e/ec/World_map_blank_without_borders.svg/2000px-World_map_blank_without_borders.svg.png'); /* Placeholder */
+    background-size: cover;
+    background-position: center;
+    background-color: #08142b;
+    z-index: 0;
+}
+
+/* HUD Overlay Container */
+.hud-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none; /* Let clicks pass through to map */
+    z-index: 10;
+    padding: 20px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+/* Glass Panel Component */
+.glass-panel {
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    padding: 16px;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    pointer-events: auto; /* Re-enable clicks for panels */
+    margin-bottom: 16px;
+    max-width: 300px;
+}
+
+.glass-panel h2 {
+    margin: 0 0 12px 0;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-secondary);
+    border-bottom: 1px solid var(--glass-border);
+    padding-bottom: 8px;
+}
+
+/* Stats Grid */
+.stats-grid {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 8px;
+    font-size: 14px;
+}
+
+.stat-row {
+    display: contents;
+}
+
+.airline-name {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.airline-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+.count {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Specific Airlines */
+.dot-delta { background-color: #E3132C; }
+.dot-united { background-color: #005DAA; }
+.dot-southwest { background-color: #F9B612; }
+.dot-qantas { background-color: #E50000; }
+.dot-emirates { background-color: #D71921; }
+
+/* Arrivals List */
+.arrival-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+.arrival-item:last-child {
+    border-bottom: none;
+}
+
+.flight-code {
+    font-weight: bold;
+    color: var(--accent-color);
+}
+
+.time-to-land {
+    color: var(--text-secondary);
+    font-size: 12px;
+}
+
+/* Toast Notification */
+.toast-container {
+    position: absolute;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    pointer-events: none;
+}
+
+.alert-toast {
+    background: rgba(220, 38, 38, 0.9);
+    color: white;
+    padding: 12px 24px;
+    border-radius: 50px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    box-shadow: 0 10px 25px rgba(220, 38, 38, 0.4);
+    pointer-events: auto;
+    animation: slideDown 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes slideDown {
+    from { transform: translateY(-100px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+/* Layout Utilities */
+.top-left {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+}
+
+.top-right {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+}
+
+.bottom-center {
+    position: absolute;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+}
