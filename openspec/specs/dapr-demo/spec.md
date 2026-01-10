@@ -39,19 +39,13 @@ The system SHALL use Dapr Output Bindings for external integrations.
 - THEN the `emergency-alert` service must trigger a notification binding (e.g., SMTP/Twilio)
 
 ### Requirement: Svelte Dashboard
-The user interface SHALL be built using Svelte.
+The user interface SHALL be a single-page "Map-First" application.
 
-#### Scenario: UI Rendering
-- WHEN a user accesses the main URL
-- THEN they are served a Svelte application
-- AND the application displays real-time flight data
-
-### Requirement: Cesium Visualization (Future)
-The dashboard SHALL support 3D visualization using CesiumJS (Phase 5).
-
-#### Scenario: 3D View
-- WHEN the user selects "3D View"
-- THEN the flight positions are rendered on a 3D globe using CesiumJS
+#### Scenario: Unified View
+- WHEN the user loads the dashboard
+- THEN they must see the 3D Map (Cesium) filling the background
+- AND statistical data (Fleet Counts, Arrivals) must be presented as floating HUD overlays on top of the map
+- AND there must be no separate navigation pages (single view experience)
 
 ### Requirement: Mock Feeder Mode
 The `adsb-feeder` service SHALL support a configurable "Mock Mode" that generates synthetic flight data instead of connecting to the live API.
