@@ -1,0 +1,1 @@
+# OpenSpec Project Context
