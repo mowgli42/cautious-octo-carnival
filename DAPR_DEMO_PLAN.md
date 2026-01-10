@@ -60,7 +60,7 @@ Demonstrate how Dapr decouples infrastructure from application logic, allowing d
 *   **Role**: Frontend for visualizing data.
 *   **Dapr Features**:
     *   **Service Invocation**: Calls `fleet-stats` for totals and `airport-tracker` for arrival lists. Avoids direct database access.
-*   **Language**: React/JavaScript (served via Nginx or Node).
+*   **Language**: Svelte/JavaScript (served via Nginx or Node).
 
 ## 4. Interaction Diagram (Mermaid)
 
@@ -108,7 +108,7 @@ graph TD
         end
         
         subgraph "Dashboard"
-            DashApp[Web UI]:::app
+            DashApp[Svelte UI]:::app
             DashDapr(Dapr Sidecar):::dapr
         end
     end
@@ -142,15 +142,25 @@ graph TD
     DashDapr -->|Service Invocation| TrackerDapr
 ```
 
-## 5. Areas for Clarification & Risks
+## 5. Future Enhancements
+### 5.1 3D Flight Visualization
+*   **Technology**: CesiumJS (3D Geospatial Visualization).
+*   **Integration**:
+    *   Update `flight-dashboard` (Svelte) to include a Cesium viewer component.
+    *   Stream real-time flight positions from Dapr Pub/Sub (via a WebSocket gateway service or direct subscription if supported by client SDK) to the Cesium viewer.
+    *   Visualize flight paths (historical) from the `flight-archiver` data.
+*   **Value**: Provides a high-fidelity "Digital Twin" view of the airspace, suitable for operations centers.
+
+## 6. Areas for Clarification & Risks
 
 1.  **"OpenSpec" Definition**: Please confirm if "OpenSpec" refers to a specific industry standard (like OpenAPI/AsyncAPI) or just a structured "Open Specification" format as used above. I have assumed the latter for this high-level plan.
 2.  **API Rate Limits**: The OpenSky Network free API has rate limits. For a live demo to a VP, we should ensure we have a cached dataset or a recorded playback mode ("Replay Service") to avoid empty screens if the API blocks us or no flights are visible.
 3.  **Deployment Target**: Is the target environment Kubernetes (AKS/EKS/GKE) or Docker Compose? Dapr works on both, but the configuration (YAMLs) differs slightly. The diagram assumes a generic Dapr mesh.
 4.  **Security Scope**: Do we need to demonstrate mTLS (automatic in Dapr) or specific ACLs for the Service Invocation?
 
-## 6. Implementation Phases
+## 7. Implementation Phases
 1.  **Phase 1**: Setup Feeder + Redis + Fleet Stats (Basic Pub/Sub + State).
-2.  **Phase 2**: Add Airport Tracker + Dashboard (Service Invocation).
+2.  **Phase 2**: Add Airport Tracker + Dashboard (Svelte + Service Invocation).
 3.  **Phase 3**: Add Archiver + Alerting (Bindings).
 4.  **Phase 4**: Add "Replay Mode" for robust demos.
+5.  **Phase 5 (Future)**: Integrate CesiumJS for 3D visualization.
