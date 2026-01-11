@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dapr Flight Tracker Dashboard</title>
+    <!-- Font for UI -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --glass-bg: rgba(20, 30, 48, 0.75);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0a0;
+            --accent-color: #00d4ff;
+            --danger-color: #ff4b4b;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            overflow: hidden;
+            background-color: #000;
+            color: var(--text-primary);
+        }
+
+        /* Map Container */
+        #cesiumContainer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-image: url('https://upload.wikimedia.org/wikipedia/commons/thumb/e/ec/World_map_blank_without_borders.svg/2000px-World_map_blank_without_borders.svg.png');
+            background-size: cover;
+            background-position: center;
+            background-color: #08142b;
+            z-index: 0;
+        }
+
+        /* Canvas overlay for flight dots */
+        #flightCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        /* HUD Overlay Container */
+        .hud-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+            padding: 20px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        /* Glass Panel Component */
+        .glass-panel {
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 16px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            pointer-events: auto;
+            margin-bottom: 16px;
+            max-width: 300px;
+        }
+
+        .glass-panel h2 {
+            margin: 0 0 12px 0;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-secondary);
+            border-bottom: 1px solid var(--glass-border);
+            padding-bottom: 8px;
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 8px;
+            font-size: 14px;
+        }
+
+        .stat-row {
+            display: contents;
+        }
+
+        .airline-name {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .airline-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .count {
+            font-weight: 600;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* Specific Airlines */
+        .dot-delta { background-color: #E3132C; }
+        .dot-united { background-color: #005DAA; }
+        .dot-southwest { background-color: #F9B612; }
+        .dot-qantas { background-color: #E50000; }
+        .dot-emirates { background-color: #D71921; }
+        .dot-other { background-color: #888; }
+
+        /* Arrivals List */
+        .arrival-list {
+            font-size: 14px;
+        }
+
+        .arrival-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .arrival-item:last-child {
+            border-bottom: none;
+        }
+
+        .flight-info {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .flight-code {
+            font-weight: bold;
+            color: var(--accent-color);
+            font-size: 14px;
+        }
+
+        .airline-sub {
+            font-size: 11px;
+            color: var(--text-secondary);
+            opacity: 0.8;
+        }
+
+        .time-to-land {
+            color: var(--text-secondary);
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .empty-state {
+            color: var(--text-secondary);
+            font-size: 12px;
+            padding: 20px 0;
+            text-align: center;
+            opacity: 0.6;
+        }
+
+        /* Toast Notification */
+        .toast-container {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            pointer-events: none;
+            z-index: 20;
+        }
+
+        .alert-toast {
+            background: rgba(220, 38, 38, 0.9);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 50px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 10px 25px rgba(220, 38, 38, 0.4);
+            pointer-events: auto;
+            animation: slideDown 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .alert-toast.hidden {
+            display: none;
+        }
+
+        @keyframes slideDown {
+            from { transform: translateY(-100px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        /* Layout Utilities */
+        .top-left {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+        }
+
+        .top-right {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+        }
+
+        .bottom-center {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+        }
+
+        .loading {
+            color: var(--text-secondary);
+            font-size: 12px;
+            opacity: 0.6;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 1. Background Map -->
+    <div id="cesiumContainer"></div>
+    <canvas id="flightCanvas"></canvas>
+
+    <!-- 2. HUD Layer (Floating Overlays) -->
+    <div class="hud-layer">
+        
+        <!-- Emergency Alert Toast (Hidden by default) -->
+        <div class="toast-container">
+            <div id="alert-toast" class="alert-toast hidden">
+                <span id="alert-text"></span>
+            </div>
+        </div>
+
+        <!-- Left Panel: Fleet Statistics -->
+        <div class="glass-panel top-left">
+            <h2>Active Fleet Stats</h2>
+            <div id="stats-grid" class="stats-grid">
+                <div class="loading">Loading statistics...</div>
+            </div>
+        </div>
+
+        <!-- Right Panel: Airport Arrivals -->
+        <div class="glass-panel top-right">
+            <h2 id="airport-title">Inbound Flights (KJFK)</h2>
+            <div id="arrival-list" class="arrival-list">
+                <div class="loading">Loading arrivals...</div>
+            </div>
+        </div>
+
+        <!-- Bottom Label -->
+        <div class="bottom-center">
+            <p style="color: rgba(255,255,255,0.4); font-size: 12px; letter-spacing: 1px;">POWERED BY DAPR</p>
+        </div>
+
+    </div>
+
+    <script>
+        // Airline color mapping (for CSS classes and map dots)
+        const airlineColorHex = {
+            'Delta': '#E3132C',
+            'United': '#005DAA',
+            'Southwest': '#F9B612',
+            'Qantas': '#E50000',
+            'Emirates': '#D71921',
+            'Other': '#888888'
+        };
+
+        const airlineClassMap = {
+            'Delta': 'dot-delta',
+            'United': 'dot-united',
+            'Southwest': 'dot-southwest',
+            'Qantas': 'dot-qantas',
+            'Emirates': 'dot-emirates'
+        };
+
+        function getAirlineClass(airline) {
+            return airlineClassMap[airline] || 'dot-other';
+        }
+
+        function getAirlineColor(airline) {
+            return airlineColorHex[airline] || airlineColorHex['Other'];
+        }
+
+        function getAirlineName(callsign) {
+            // Extract airline from callsign (first 2 letters)
+            const code = callsign.substring(0, 2).trim();
+            const codes = {
+                'DL': 'Delta',
+                'UA': 'United',
+                'WN': 'Southwest',
+                'QF': 'Qantas',
+                'EK': 'Emirates'
+            };
+            return codes[code] || 'Other';
+        }
+
+        function formatTimeToLand(altitude, velocity) {
+            if (!altitude || altitude <= 0 || !velocity || velocity <= 0) {
+                return 'N/A';
+            }
+            // Rough estimate: altitude (m) / vertical rate (m/s) / 60 = minutes
+            // Using velocity as proxy for descent rate (simplified)
+            const minutes = Math.max(1, Math.round(altitude / (velocity * 2) / 60));
+            return `${minutes} min${minutes !== 1 ? 's' : ''}`;
+        }
+
+        async function loadFleetStats() {
+            try {
+                const response = await fetch('/api/v1/fleet/stats/summary');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const summary = await response.json();
+
+                const statsGrid = document.getElementById('stats-grid');
+                statsGrid.innerHTML = '';
+
+                // Sort airlines by count (descending)
+                const airlines = Object.entries(summary.by_airline || {})
+                    .sort((a, b) => b[1].count - a[1].count);
+
+                airlines.forEach(([airline, stats]) => {
+                    const row = document.createElement('div');
+                    row.className = 'stat-row';
+                    const airlineClass = getAirlineClass(airline);
+                    row.innerHTML = `
+                        <div class="airline-name">
+                            <div class="airline-dot ${airlineClass}"></div>
+                            ${airline}
+                        </div>
+                        <div class="count">${stats.count}</div>
+                    `;
+                    statsGrid.appendChild(row);
+                });
+
+                // Add total row
+                const totalRow = document.createElement('div');
+                totalRow.className = 'stat-row';
+                totalRow.style.cssText = 'margin-top: 8px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 8px;';
+                totalRow.innerHTML = `
+                    <div class="airline-name">Total Active</div>
+                    <div class="count" style="color: var(--accent-color)">${summary.total_active_flights || 0}</div>
+                `;
+                statsGrid.appendChild(totalRow);
+
+            } catch (err) {
+                console.error('Error loading fleet stats:', err);
+                document.getElementById('stats-grid').innerHTML = 
+                    '<div class="empty-state">Error loading statistics</div>';
+            }
+        }
+
+        async function loadAirportArrivals() {
+            try {
+                // Default to KJFK for now
+                const airportCode = 'KJFK';
+                const response = await fetch(`/api/v1/airports/${airportCode}/arrivals`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+
+                const arrivalList = document.getElementById('arrival-list');
+                const arrivals = data.arrivals || [];
+
+                if (arrivals.length === 0) {
+                    arrivalList.innerHTML = '<div class="empty-state">No arrivals at this time</div>';
+                    return;
+                }
+
+                arrivalList.innerHTML = '';
+                
+                // Sort by altitude (lower = closer to landing)
+                arrivals.sort((a, b) => {
+                    const altA = a.baro_altitude || a.geo_altitude || 0;
+                    const altB = b.baro_altitude || b.geo_altitude || 0;
+                    return altA - altB;
+                });
+
+                arrivals.slice(0, 5).forEach(flight => {
+                    const item = document.createElement('div');
+                    item.className = 'arrival-item';
+                    const airline = getAirlineName(flight.callsign || '');
+                    const altitude = flight.baro_altitude || flight.geo_altitude || 0;
+                    const velocity = flight.velocity || 0;
+                    const timeToLand = formatTimeToLand(altitude, velocity);
+                    
+                    item.innerHTML = `
+                        <div class="flight-info">
+                            <div class="flight-code">${(flight.callsign || '').trim()}</div>
+                            <div class="airline-sub">${airline}</div>
+                        </div>
+                        <div class="time-to-land">${timeToLand}</div>
+                    `;
+                    arrivalList.appendChild(item);
+                });
+
+            } catch (err) {
+                console.error('Error loading arrivals:', err);
+                document.getElementById('arrival-list').innerHTML = 
+                    '<div class="empty-state">Error loading arrivals</div>';
+            }
+        }
+
+        // Flight map rendering
+        let flightCanvas = null;
+        let flightCtx = null;
+
+        function initFlightCanvas() {
+            flightCanvas = document.getElementById('flightCanvas');
+            flightCtx = flightCanvas.getContext('2d');
+            
+            // Set canvas size to match container
+            function resizeCanvas() {
+                flightCanvas.width = window.innerWidth;
+                flightCanvas.height = window.innerHeight;
+            }
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+        }
+
+        function drawFlightDots(flights) {
+            if (!flightCtx || !flightCanvas) return;
+            
+            // Clear canvas
+            flightCtx.clearRect(0, 0, flightCanvas.width, flightCanvas.height);
+            
+            if (!flights || flights.length === 0) return;
+            
+            // Map bounds for coordinate conversion (approximate world map bounds)
+            // World map image covers approximately: lat -85 to 85, lon -180 to 180
+            const minLat = -85;
+            const maxLat = 85;
+            const minLon = -180;
+            const maxLon = 180;
+            
+            flights.forEach(flight => {
+                if (!flight.latitude || !flight.longitude) return;
+                
+                // Convert lat/lon to canvas coordinates
+                // Map image uses equirectangular projection
+                const x = ((flight.longitude - minLon) / (maxLon - minLon)) * flightCanvas.width;
+                const y = flightCanvas.height - ((flight.latitude - minLat) / (maxLat - minLat)) * flightCanvas.height;
+                
+                // Get airline color
+                const airline = getAirlineName(flight.callsign || '');
+                const color = getAirlineColor(airline);
+                
+                // Draw dot
+                flightCtx.fillStyle = color;
+                flightCtx.beginPath();
+                flightCtx.arc(x, y, 3, 0, Math.PI * 2);
+                flightCtx.fill();
+                
+                // Add subtle glow
+                flightCtx.shadowColor = color;
+                flightCtx.shadowBlur = 4;
+                flightCtx.fill();
+                flightCtx.shadowBlur = 0;
+            });
+        }
+
+        async function loadAllFlights() {
+            try {
+                const response = await fetch('/api/v1/flights/all');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                drawFlightDots(data.flights || []);
+            } catch (err) {
+                console.error('Error loading flights for map:', err);
+                // Clear canvas on error
+                if (flightCtx && flightCanvas) {
+                    flightCtx.clearRect(0, 0, flightCanvas.width, flightCanvas.height);
+                }
+            }
+        }
+
+        async function loadData() {
+            await Promise.all([
+                loadFleetStats(),
+                loadAirportArrivals(),
+                loadAllFlights()
+            ]);
+        }
+
+        // Initialize canvas on page load
+        initFlightCanvas();
+
+        // Load data on page load
+        loadData();
+
+        // Auto-refresh every 5 seconds
+        setInterval(loadData, 5000);
+    </script>
+</body>
+</html>
+

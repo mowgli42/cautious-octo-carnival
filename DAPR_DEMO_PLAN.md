@@ -200,8 +200,37 @@ graph TD
 6.  **Destination/Origin Inference**: OpenSky Network doesn't provide destination/origin directly. Options: parse from callsign patterns, use trajectory analysis, or use mock data for demo.
 
 ## 7. Implementation Phases
-1.  **Phase 1**: Setup Feeder + Redis + Fleet Stats (Basic Pub/Sub + State). Includes Mock Mode support.
-2.  **Phase 2**: Add Airport Tracker + Dashboard (Svelte + Service Invocation). Includes airport geofencing config file.
-3.  **Phase 3**: Add Archiver (Local file binding) + Emergency Alert (Web display).
-4.  **Phase 4**: Add comprehensive fleet metrics (destination, origin, aircraft type).
-5.  **Phase 5 (Future)**: Integrate CesiumJS for 3D visualization (already specified in spec).
+
+**Important:** Before implementing each phase, review [DAPR_LESSONS_LEARNED.md](DAPR_LESSONS_LEARNED.md) for Dapr integration best practices and common pitfalls.
+
+### Phase 1: Setup Feeder + Redis + Fleet Stats (Basic Pub/Sub + State)
+- Includes Mock Mode support.
+- **Dapr Integration Checklist:**
+  - ✅ Pub/Sub: Use `@dapr/dapr` SDK for publishing (works well)
+  - ✅ Pub/Sub: Create POST endpoints for subscriptions (Python/FastAPI)
+  - ✅ State Store: Use `DaprClient` with correct initialization parameters
+  - ✅ Docker Compose: Proper sidecar network configuration
+
+### Phase 2: Add Airport Tracker + Dashboard (Svelte + Service Invocation)
+- Includes airport geofencing config file.
+- **Dapr Integration Checklist:**
+  - ✅ Service Invocation: Use Dapr HTTP API directly (`/v1.0/invoke/<app-id>/method/<path>`) - simpler than SDK
+  - ✅ Pub/Sub: Go service should create POST endpoint for subscription
+  - ✅ Docker Compose: Ensure sidecar has proper `depends_on` and network_mode
+
+### Phase 3: Add Archiver (Local file binding) + Emergency Alert (Web display)
+- **Dapr Integration Checklist:**
+  - ✅ Output Bindings: Ensure `data-volume` is mounted correctly
+  - ✅ Component Files: Verify binding component YAML references valid paths
+  - ✅ Docker Compose: Mount required volumes to sidecar
+
+### Phase 4: Add comprehensive fleet metrics (destination, origin, aircraft type)
+- **Dapr Integration Checklist:**
+  - ✅ Verify all subscriptions have correct routes
+  - ✅ Ensure state store operations use correct component name
+
+### Phase 5 (Future): Integrate CesiumJS for 3D visualization
+- Already specified in spec.
+- **Dapr Integration Considerations:**
+  - WebSocket gateway or direct subscription via client SDK
+  - Consider using Dapr HTTP API for service calls from frontend

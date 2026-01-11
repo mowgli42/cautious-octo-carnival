@@ -1,0 +1,14 @@
+{
+  "name": "adsb-feeder",
+  "version": "1.0.0",
+  "description": "ADS-B Feeder service that publishes flight updates via Dapr Pub/Sub",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "@dapr/dapr": "^3.0.0"
+  }
+}
+

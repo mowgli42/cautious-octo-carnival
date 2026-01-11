@@ -1,0 +1,14 @@
+apiVersion: dapr.io/v2alpha1
+kind: Subscription
+metadata:
+  name: flight-update-subscription
+spec:
+  topic: flight-update
+  routes:
+    default: /flight-update
+  pubsubname: pubsub
+  scopes:
+    - fleet-stats
+    - airport-tracker
+    # Note: flight-dashboard does NOT subscribe - it uses Service Invocation only
+

@@ -14,11 +14,11 @@ The focus is on simplicity: minimal code, straightforward setup, and clear examp
 
 ## Prerequisites
 
-- Docker and Docker Compose (for running services and Dapr sidecars).
-- Node.js (v18+).
-- Dapr CLI installed (see [Dapr Quickstarts](https://docs.dapr.io/getting-started/)).
-- Redis (used as the pub/sub broker; can be run via Docker).
-- Access to an ADS-B data feed API key (e.g., from OpenSky Network; free tier available).
+- **Docker and Docker Compose** (required - all services run in containers)
+  - Docker Compose v2.0+ recommended
+  - All dependencies (Redis, Dapr sidecars) are included in `docker-compose.yml`
+
+**Note:** No need to install Node.js, Python, Go, or Dapr CLI locally - everything runs in Docker containers. The demo uses mock data by default, so no API keys are required.
 
 ## Installation
 
@@ -83,18 +83,51 @@ The focus is on simplicity: minimal code, straightforward setup, and clear examp
    - Fleet Stats: Outputs JSON with airline counts and averages.
    - Airport Info: Outputs arrival/departure estimates for monitored airports.
 
-### Running with Docker Compose
+### Running with Docker Compose (Recommended)
 
-For a one-command setup:
+For a one-command setup that builds and starts all services:
+
+```bash
+docker-compose up --build
 ```
-docker-compose up
+
+This command:
+- Builds all service Docker images
+- Starts Redis (message broker and state store)
+- Starts Dapr placement service
+- Starts all application services with their Dapr sidecars
+- Includes: `adsb-feeder`, `fleet-stats`, `airport-tracker`, and `flight-dashboard`
+
+**Note:** Use `--build` flag to rebuild images when code changes. On subsequent runs without code changes, you can use `docker-compose up` (without `--build`) for faster startup.
+
+**View logs:**
+```bash
+docker-compose logs -f
 ```
-This builds and runs all services with Dapr sidecars and Redis.
+
+**Access the dashboard:**
+Open http://localhost:3002 in your browser to see the flight tracking dashboard.
+
+For detailed setup instructions and troubleshooting, see [GETTING_STARTED.md](GETTING_STARTED.md).
 
 ### Testing
 
 - Monitor logs for published and subscribed messages.
-- Use tools like `curl` to invoke service endpoints if needed (e.g., `curl http://localhost:3001/stats` for fleet stats summary).
+- Use tools like `curl` to invoke service endpoints if needed (e.g., `curl http://localhost:3001/api/v1/fleet/stats/summary` for fleet stats summary).
+
+## Dapr Integration Lessons
+
+**Important:** Before implementing new services with Dapr, please review [DAPR_LESSONS_LEARNED.md](DAPR_LESSONS_LEARNED.md) which documents key lessons learned during integration.
+
+### Quick Reference
+
+- **Service Invocation**: Use Dapr HTTP API directly (`/v1.0/invoke/<app-id>/method/<path>`) - simpler than SDK
+- **Pub/Sub Subscriptions (Python)**: Create POST endpoints manually, not decorators
+- **Docker Compose**: Sidecars need `network_mode: service:<app>` and proper `depends_on`
+- **Component Files**: Ensure secrets files and data directories exist before starting
+- **DaprClient Initialization**: Check SDK version and use correct parameter format
+
+See [DAPR_LESSONS_LEARNED.md](DAPR_LESSONS_LEARNED.md) for detailed patterns, examples, and troubleshooting.
 
 ## Architecture
 

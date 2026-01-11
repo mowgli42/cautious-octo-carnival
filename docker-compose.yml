@@ -1,0 +1,196 @@
+services:
+  # Redis for Pub/Sub and State Store
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    networks:
+      - dapr-network
+
+  # Dapr Placement service (for actors, but needed for Dapr runtime)
+  dapr-placement:
+    image: "daprio/dapr:latest"
+    command: ["./placement", "-port", "50006"]
+    ports:
+      - "50006:50006"
+      - "6050:6050"
+    networks:
+      - dapr-network
+
+  # ADS-B Feeder Service
+  adsb-feeder:
+    build:
+      context: ./services/adsb-feeder
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - MOCK_MODE=true
+      - PORT=3000
+      - DAPR_HTTP_PORT=3500
+      - DAPR_HOST=0.0.0.0
+    depends_on:
+      - redis
+      - dapr-placement
+    networks:
+      - dapr-network
+
+  # Dapr sidecar for adsb-feeder
+  # Uses network_mode to share network with app container
+  adsb-feeder-dapr:
+    image: "daprio/daprd:latest"
+    command: [
+      "./daprd",
+      "-app-id", "adsb-feeder",
+      "-app-port", "3000",
+      "-dapr-http-port", "3500",
+      "-dapr-grpc-port", "50001",
+      "-components-path", "/components",
+      "-placement-host-address", "dapr-placement:50006"
+    ]
+    volumes:
+      - ./components:/components
+      - ./secrets:/secrets:ro
+      - data-volume:/data
+    depends_on:
+      - redis
+      - dapr-placement
+      - adsb-feeder
+    network_mode: "service:adsb-feeder"
+
+  # Fleet Stats Service
+  fleet-stats:
+    build:
+      context: ./services/fleet-stats
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - DAPR_HTTP_PORT=3501
+      - DAPR_HOST=0.0.0.0
+    depends_on:
+      - redis
+      - dapr-placement
+    networks:
+      - dapr-network
+
+  # Dapr sidecar for fleet-stats
+  # Uses network_mode to share network with app container
+  fleet-stats-dapr:
+    image: "daprio/daprd:latest"
+    command: [
+      "./daprd",
+      "-app-id", "fleet-stats",
+      "-app-port", "3001",
+      "-dapr-http-port", "3501",
+      "-dapr-grpc-port", "50002",
+      "-components-path", "/components",
+      "-placement-host-address", "dapr-placement:50006"
+    ]
+    volumes:
+      - ./components:/components
+      - ./secrets:/secrets:ro
+      - data-volume:/data
+    depends_on:
+      - redis
+      - dapr-placement
+      - fleet-stats
+    network_mode: "service:fleet-stats"
+
+  # Flight Dashboard Service
+  flight-dashboard:
+    build:
+      context: ./services/flight-dashboard
+      dockerfile: Dockerfile
+    ports:
+      - "3002:3002"
+      - "3502:3502"  # Expose Dapr HTTP port for sidecar communication
+    environment:
+      - PORT=3002
+      - DAPR_HTTP_PORT=3502
+      - DAPR_HOST=0.0.0.0
+    depends_on:
+      - redis
+      - dapr-placement
+    networks:
+      - dapr-network
+
+  # Dapr sidecar for flight-dashboard
+  # Uses network_mode to share network with app container
+  flight-dashboard-dapr:
+    image: "daprio/daprd:latest"
+    command: [
+      "./daprd",
+      "-app-id", "flight-dashboard",
+      "-app-port", "3002",
+      "-dapr-http-port", "3502",
+      "-dapr-grpc-port", "50003",
+      "-components-path", "/components",
+      "-placement-host-address", "dapr-placement:50006"
+    ]
+    volumes:
+      - ./components:/components
+      - ./secrets:/secrets:ro
+      - data-volume:/data
+    depends_on:
+      - redis
+      - dapr-placement
+      - flight-dashboard
+    network_mode: "service:flight-dashboard"
+
+  # Airport Tracker Service (Go)
+  airport-tracker:
+    build:
+      context: ./services/airport-tracker
+      dockerfile: Dockerfile
+    ports:
+      - "3003:3003"
+      - "3503:3503"  # Expose Dapr HTTP port for sidecar communication
+    environment:
+      - PORT=3003
+      - DAPR_HTTP_PORT=3503
+      - DAPR_HOST=0.0.0.0
+      - AIRPORT_CONFIG_PATH=/config/airports.json
+    depends_on:
+      - redis
+      - dapr-placement
+    networks:
+      - dapr-network
+    volumes:
+      - ./services/airport-tracker/config:/config:ro
+
+  # Dapr sidecar for airport-tracker
+  # Uses network_mode to share network with app container
+  airport-tracker-dapr:
+    image: "daprio/daprd:latest"
+    command: [
+      "./daprd",
+      "-app-id", "airport-tracker",
+      "-app-port", "3003",
+      "-dapr-http-port", "3503",
+      "-dapr-grpc-port", "50004",
+      "-components-path", "/components",
+      "-placement-host-address", "dapr-placement:50006"
+    ]
+    volumes:
+      - ./components:/components
+      - ./secrets:/secrets:ro
+      - data-volume:/data
+    depends_on:
+      - redis
+      - dapr-placement
+      - airport-tracker
+    network_mode: "service:airport-tracker"
+
+volumes:
+  redis-data:
+  data-volume:
+
+networks:
+  dapr-network:
+    driver: bridge
+
