@@ -108,6 +108,9 @@ docker-compose logs -f
 **Access the dashboard:**
 Open http://localhost:3002 in your browser to see the flight tracking dashboard.
 
+**Access Zipkin (distributed tracing):**
+Open http://localhost:9411 in your browser to view distributed traces across all services.
+
 For detailed setup instructions and troubleshooting, see [GETTING_STARTED.md](GETTING_STARTED.md).
 
 ### Testing

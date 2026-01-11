@@ -9,6 +9,12 @@ services:
       - redis-data:/data
     networks:
       - dapr-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 1s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
 
   # Dapr Placement service (for actors, but needed for Dapr runtime)
   dapr-placement:
@@ -17,6 +23,14 @@ services:
     ports:
       - "50006:50006"
       - "6050:6050"
+    networks:
+      - dapr-network
+
+  # Zipkin for distributed tracing observability
+  zipkin:
+    image: openzipkin/zipkin:latest
+    ports:
+      - "9411:9411"
     networks:
       - dapr-network
 
@@ -33,8 +47,10 @@ services:
       - DAPR_HTTP_PORT=3500
       - DAPR_HOST=0.0.0.0
     depends_on:
-      - redis
-      - dapr-placement
+      redis:
+        condition: service_healthy
+      dapr-placement:
+        condition: service_started
     networks:
       - dapr-network
 
@@ -49,16 +65,21 @@ services:
       "-dapr-http-port", "3500",
       "-dapr-grpc-port", "50001",
       "-components-path", "/components",
+      "-config", "/config/config.yaml",
       "-placement-host-address", "dapr-placement:50006"
     ]
     volumes:
       - ./components:/components
+      - ./config.yaml:/config/config.yaml:ro
       - ./secrets:/secrets:ro
       - data-volume:/data
     depends_on:
-      - redis
-      - dapr-placement
-      - adsb-feeder
+      redis:
+        condition: service_healthy
+      dapr-placement:
+        condition: service_started
+      adsb-feeder:
+        condition: service_started
     network_mode: "service:adsb-feeder"
 
   # Fleet Stats Service
@@ -73,8 +94,10 @@ services:
       - DAPR_HTTP_PORT=3501
       - DAPR_HOST=0.0.0.0
     depends_on:
-      - redis
-      - dapr-placement
+      redis:
+        condition: service_healthy
+      dapr-placement:
+        condition: service_started
     networks:
       - dapr-network
 
@@ -89,16 +112,21 @@ services:
       "-dapr-http-port", "3501",
       "-dapr-grpc-port", "50002",
       "-components-path", "/components",
+      "-config", "/config/config.yaml",
       "-placement-host-address", "dapr-placement:50006"
     ]
     volumes:
       - ./components:/components
+      - ./config.yaml:/config/config.yaml:ro
       - ./secrets:/secrets:ro
       - data-volume:/data
     depends_on:
-      - redis
-      - dapr-placement
-      - fleet-stats
+      redis:
+        condition: service_healthy
+      dapr-placement:
+        condition: service_started
+      fleet-stats:
+        condition: service_started
     network_mode: "service:fleet-stats"
 
   # Flight Dashboard Service
@@ -114,8 +142,10 @@ services:
       - DAPR_HTTP_PORT=3502
       - DAPR_HOST=0.0.0.0
     depends_on:
-      - redis
-      - dapr-placement
+      redis:
+        condition: service_healthy
+      dapr-placement:
+        condition: service_started
     networks:
       - dapr-network
 
@@ -130,16 +160,21 @@ services:
       "-dapr-http-port", "3502",
       "-dapr-grpc-port", "50003",
       "-components-path", "/components",
+      "-config", "/config/config.yaml",
       "-placement-host-address", "dapr-placement:50006"
     ]
     volumes:
       - ./components:/components
+      - ./config.yaml:/config/config.yaml:ro
       - ./secrets:/secrets:ro
       - data-volume:/data
     depends_on:
-      - redis
-      - dapr-placement
-      - flight-dashboard
+      redis:
+        condition: service_healthy
+      dapr-placement:
+        condition: service_started
+      flight-dashboard:
+        condition: service_started
     network_mode: "service:flight-dashboard"
 
   # Airport Tracker Service (Go)
@@ -156,8 +191,10 @@ services:
       - DAPR_HOST=0.0.0.0
       - AIRPORT_CONFIG_PATH=/config/airports.json
     depends_on:
-      - redis
-      - dapr-placement
+      redis:
+        condition: service_healthy
+      dapr-placement:
+        condition: service_started
     networks:
       - dapr-network
     volumes:
@@ -174,16 +211,21 @@ services:
       "-dapr-http-port", "3503",
       "-dapr-grpc-port", "50004",
       "-components-path", "/components",
+      "-config", "/config/config.yaml",
       "-placement-host-address", "dapr-placement:50006"
     ]
     volumes:
       - ./components:/components
+      - ./config.yaml:/config/config.yaml:ro
       - ./secrets:/secrets:ro
       - data-volume:/data
     depends_on:
-      - redis
-      - dapr-placement
-      - airport-tracker
+      redis:
+        condition: service_healthy
+      dapr-placement:
+        condition: service_started
+      airport-tracker:
+        condition: service_started
     network_mode: "service:airport-tracker"
 
 volumes:

@@ -31,6 +31,7 @@ Dapr uses component configuration files. We've created:
 - `components/statestore.yaml` - Redis State Store configuration
 - `components/filebinding.yaml` - Local file storage for bindings (future)
 - `components/secrets.yaml` - Local secrets store (future)
+- `config.yaml` - Dapr runtime configuration (Zipkin tracing)
 
 ## Step 2: Running the Demo
 
