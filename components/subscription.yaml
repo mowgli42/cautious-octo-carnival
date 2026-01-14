@@ -11,5 +11,6 @@ scopes:
   - fleet-stats
   - airport-tracker
   - flight-archiver
-    # Note: flight-dashboard does NOT subscribe - it uses Service Invocation only
+  - emergency-alert
+  # Note: flight-dashboard does NOT subscribe - it uses Service Invocation only
 

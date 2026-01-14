@@ -20,6 +20,9 @@ PORT = int(os.getenv("PORT", "3001"))
 # In-memory statistics (will be persisted to state store)
 stats = {
     'by_airline': {},
+    'by_destination': {},
+    'by_origin': {},
+    'by_aircraft_type': {},
     'total_active': 0,
     'last_update': None
 }
@@ -48,6 +51,136 @@ def get_airline_from_callsign(callsign):
     code = callsign[:2].strip()
     return airline_codes.get(code, 'Other')
 
+def infer_destination_from_flight(flight):
+    """
+    Infer destination airport from flight data.
+    In mock mode, we'll use synthetic logic based on position and callsign.
+    """
+    # Major airports for demo purposes
+    airports = {
+        'KJFK': 'John F. Kennedy International Airport',
+        'KLAX': 'Los Angeles International Airport',
+        'EGLL': 'London Heathrow Airport',
+        'YSSY': 'Sydney Kingsford Smith Airport',
+        'OMDB': 'Dubai International Airport',
+        'KORD': 'Chicago O\'Hare International Airport',
+        'KDFW': 'Dallas/Fort Worth International Airport',
+        'KATL': 'Hartsfield-Jackson Atlanta International Airport'
+    }
+    
+    # Infer from position (closest major airport)
+    lat = flight.get('latitude')
+    lon = flight.get('longitude')
+    
+    if lat and lon:
+        # Simple distance-based inference (for demo)
+        # In real system, would use proper airport database
+        airport_distances = {
+            'KJFK': ((lat - 40.6413)**2 + (lon + 73.7781)**2)**0.5,
+            'KLAX': ((lat - 33.9425)**2 + (lon + 118.4081)**2)**0.5,
+            'EGLL': ((lat - 51.47)**2 + (lon + 0.4543)**2)**0.5,
+            'YSSY': ((lat + 33.9399)**2 + (lon - 151.1753)**2)**0.5,
+            'OMDB': ((lat - 25.2532)**2 + (lon - 55.3657)**2)**0.5,
+            'KORD': ((lat - 41.9786)**2 + (lon + 87.9048)**2)**0.5,
+            'KDFW': ((lat - 32.8998)**2 + (lon + 97.0403)**2)**0.5,
+            'KATL': ((lat - 33.6407)**2 + (lon + 84.4277)**2)**0.5
+        }
+        
+        # Find closest airport
+        closest = min(airport_distances.items(), key=lambda x: x[1])
+        if closest[1] < 50:  # Within reasonable distance (degrees)
+            return closest[0]
+    
+    # Fallback: infer from callsign pattern (synthetic)
+    callsign = flight.get('callsign', '').strip()
+    if callsign:
+        # Use flight number modulo to assign destination
+        try:
+            flight_num = int(''.join(filter(str.isdigit, callsign)) or '0')
+            airport_list = list(airports.keys())
+            return airport_list[flight_num % len(airport_list)]
+        except:
+            pass
+    
+    return 'Unknown'
+
+def infer_origin_from_flight(flight):
+    """
+    Infer origin airport from flight data.
+    In mock mode, we'll use synthetic logic.
+    """
+    # For demo, use origin_country to infer origin airport
+    origin_country = flight.get('origin_country', '')
+    
+    # Map countries to common origin airports
+    country_airports = {
+        'United States': ['KJFK', 'KLAX', 'KORD', 'KDFW', 'KATL'],
+        'United Kingdom': ['EGLL'],
+        'Australia': ['YSSY'],
+        'United Arab Emirates': ['OMDB']
+    }
+    
+    if origin_country in country_airports:
+        airports = country_airports[origin_country]
+        # Use icao24 hash to consistently assign origin
+        icao24 = flight.get('icao24', '')
+        if icao24:
+            idx = hash(icao24) % len(airports)
+            return airports[idx]
+        return airports[0]
+    
+    # Fallback: infer from callsign
+    callsign = flight.get('callsign', '').strip()
+    if callsign:
+        try:
+            flight_num = int(''.join(filter(str.isdigit, callsign)) or '0')
+            # Use different offset for origin vs destination
+            default_airports = ['KJFK', 'KLAX', 'EGLL', 'YSSY', 'OMDB']
+            return default_airports[(flight_num + 1) % len(default_airports)]
+        except:
+            pass
+    
+    return 'Unknown'
+
+def infer_aircraft_type_from_flight(flight):
+    """
+    Infer aircraft type from flight data.
+    In mock mode, use synthetic logic based on callsign patterns.
+    """
+    callsign = flight.get('callsign', '').strip()
+    
+    # Aircraft type lookup based on airline and flight number patterns
+    # This is synthetic for demo purposes
+    aircraft_types = {
+        'Narrow Body': ['B737', 'A320', 'A321', 'B757'],
+        'Wide Body': ['B777', 'B787', 'A330', 'A350', 'B747'],
+        'Regional': ['CRJ', 'ERJ', 'E175', 'E190'],
+        'Cargo': ['B767', 'B777F', 'A330F']
+    }
+    
+    # Use callsign hash to consistently assign aircraft type
+    if callsign:
+        hash_val = hash(callsign) % 100
+        if hash_val < 50:
+            return 'Narrow Body'
+        elif hash_val < 80:
+            return 'Wide Body'
+        elif hash_val < 95:
+            return 'Regional'
+        else:
+            return 'Cargo'
+    
+    # Fallback based on altitude/velocity (synthetic)
+    altitude = flight.get('baro_altitude', 0) or 0
+    velocity = flight.get('velocity', 0) or 0
+    
+    if altitude > 10000 and velocity > 200:
+        return 'Wide Body'
+    elif altitude > 5000:
+        return 'Narrow Body'
+    else:
+        return 'Regional'
+
 def load_stats_from_state():
     """Load statistics from Dapr state store."""
     global stats
@@ -62,6 +195,9 @@ def load_stats_from_state():
         # Start with empty stats
         stats = {
             'by_airline': {},
+            'by_destination': {},
+            'by_origin': {},
+            'by_aircraft_type': {},
             'total_active': 0,
             'last_update': None
         }
@@ -107,7 +243,12 @@ async def flight_update_handler(request: Request):
         # Extract airline
         airline = get_airline_from_callsign(flight.get('callsign', ''))
         
-        # Update statistics
+        # Infer destination and origin
+        destination = infer_destination_from_flight(flight)
+        origin = infer_origin_from_flight(flight)
+        aircraft_type = infer_aircraft_type_from_flight(flight)
+        
+        # Update airline statistics
         if airline not in stats['by_airline']:
             stats['by_airline'][airline] = {
                 'count': 0,
@@ -116,16 +257,64 @@ async def flight_update_handler(request: Request):
                 'samples': 0
             }
         
-        # Count unique flights by tracking icao24
-        # For simplicity, we'll just count updates (in real system, we'd track unique flights)
         stats['by_airline'][airline]['count'] += 1
         stats['by_airline'][airline]['samples'] += 1
         
-        # Add altitude and velocity for averages
         if flight.get('baro_altitude'):
             stats['by_airline'][airline]['total_altitude'] += flight['baro_altitude']
         if flight.get('velocity'):
             stats['by_airline'][airline]['total_velocity'] += flight['velocity']
+        
+        # Update destination statistics
+        if destination not in stats['by_destination']:
+            stats['by_destination'][destination] = {
+                'count': 0,
+                'total_altitude': 0,
+                'total_velocity': 0,
+                'samples': 0
+            }
+        
+        stats['by_destination'][destination]['count'] += 1
+        stats['by_destination'][destination]['samples'] += 1
+        
+        if flight.get('baro_altitude'):
+            stats['by_destination'][destination]['total_altitude'] += flight['baro_altitude']
+        if flight.get('velocity'):
+            stats['by_destination'][destination]['total_velocity'] += flight['velocity']
+        
+        # Update origin statistics
+        if origin not in stats['by_origin']:
+            stats['by_origin'][origin] = {
+                'count': 0,
+                'total_altitude': 0,
+                'total_velocity': 0,
+                'samples': 0
+            }
+        
+        stats['by_origin'][origin]['count'] += 1
+        stats['by_origin'][origin]['samples'] += 1
+        
+        if flight.get('baro_altitude'):
+            stats['by_origin'][origin]['total_altitude'] += flight['baro_altitude']
+        if flight.get('velocity'):
+            stats['by_origin'][origin]['total_velocity'] += flight['velocity']
+        
+        # Update aircraft type statistics
+        if aircraft_type not in stats['by_aircraft_type']:
+            stats['by_aircraft_type'][aircraft_type] = {
+                'count': 0,
+                'total_altitude': 0,
+                'total_velocity': 0,
+                'samples': 0
+            }
+        
+        stats['by_aircraft_type'][aircraft_type]['count'] += 1
+        stats['by_aircraft_type'][aircraft_type]['samples'] += 1
+        
+        if flight.get('baro_altitude'):
+            stats['by_aircraft_type'][aircraft_type]['total_altitude'] += flight['baro_altitude']
+        if flight.get('velocity'):
+            stats['by_aircraft_type'][aircraft_type]['total_velocity'] += flight['velocity']
         
         # Calculate total active flights (sum of counts)
         stats['total_active'] = sum(a['count'] for a in stats['by_airline'].values())
@@ -231,6 +420,51 @@ async def get_airlines_with_min_flights(min_flights: int = 10):
     # Sort by count (descending)
     result['airlines'].sort(key=lambda x: x['count'], reverse=True)
     
+    return result
+
+@app.get("/api/v1/fleet/stats/by-destination")
+async def get_by_destination():
+    """Get statistics grouped by destination airport."""
+    result = {}
+    for destination, data in stats['by_destination'].items():
+        avg_altitude = data['total_altitude'] / data['samples'] if data['samples'] > 0 else 0
+        avg_velocity = data['total_velocity'] / data['samples'] if data['samples'] > 0 else 0
+        
+        result[destination] = {
+            "count": data['count'],
+            "avg_altitude": round(avg_altitude, 2),
+            "avg_velocity": round(avg_velocity, 2)
+        }
+    return result
+
+@app.get("/api/v1/fleet/stats/by-origin")
+async def get_by_origin():
+    """Get statistics grouped by origin airport."""
+    result = {}
+    for origin, data in stats['by_origin'].items():
+        avg_altitude = data['total_altitude'] / data['samples'] if data['samples'] > 0 else 0
+        avg_velocity = data['total_velocity'] / data['samples'] if data['samples'] > 0 else 0
+        
+        result[origin] = {
+            "count": data['count'],
+            "avg_altitude": round(avg_altitude, 2),
+            "avg_velocity": round(avg_velocity, 2)
+        }
+    return result
+
+@app.get("/api/v1/fleet/stats/by-aircraft-type")
+async def get_by_aircraft_type():
+    """Get statistics grouped by aircraft type."""
+    result = {}
+    for aircraft_type, data in stats['by_aircraft_type'].items():
+        avg_altitude = data['total_altitude'] / data['samples'] if data['samples'] > 0 else 0
+        avg_velocity = data['total_velocity'] / data['samples'] if data['samples'] > 0 else 0
+        
+        result[aircraft_type] = {
+            "count": data['count'],
+            "avg_altitude": round(avg_altitude, 2),
+            "avg_velocity": round(avg_velocity, 2)
+        }
     return result
 
 @app.on_event("startup")

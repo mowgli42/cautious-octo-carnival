@@ -201,10 +201,51 @@
             box-shadow: 0 10px 25px rgba(220, 38, 38, 0.4);
             pointer-events: auto;
             animation: slideDown 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.2s ease;
+        }
+
+        .alert-toast:hover {
+            background: rgba(220, 38, 38, 1);
+            transform: scale(1.05);
         }
 
         .alert-toast.hidden {
             display: none;
+        }
+
+        /* Emergency Alerts Link */
+        .emergency-link {
+            position: absolute;
+            bottom: 70px;
+            right: 20px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 12px 20px;
+            pointer-events: auto;
+            text-decoration: none;
+            color: var(--text-primary);
+            font-size: 14px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s ease;
+            z-index: 15;
+        }
+
+        .emergency-link:hover {
+            background: rgba(220, 38, 38, 0.2);
+            border-color: var(--danger-color);
+            color: var(--danger-color);
+        }
+
+        .emergency-link-icon {
+            font-size: 18px;
         }
 
         @keyframes slideDown {
@@ -251,9 +292,9 @@
         
         <!-- Emergency Alert Toast (Hidden by default) -->
         <div class="toast-container">
-            <div id="alert-toast" class="alert-toast hidden">
+            <a href="http://localhost:3005/" target="_blank" id="alert-toast" class="alert-toast hidden">
                 <span id="alert-text"></span>
-            </div>
+            </a>
         </div>
 
         <!-- Left Panel: Fleet Statistics -->
@@ -276,6 +317,12 @@
         <div class="bottom-center">
             <p style="color: rgba(255,255,255,0.4); font-size: 12px; letter-spacing: 1px;">POWERED BY DAPR</p>
         </div>
+
+        <!-- Emergency Alerts Link -->
+        <a href="http://localhost:3005/" target="_blank" class="emergency-link" id="emergency-link">
+            <span class="emergency-link-icon">🚨</span>
+            <span>Emergency Alerts</span>
+        </a>
 
     </div>
 
@@ -493,6 +540,9 @@
                 }
                 const data = await response.json();
                 drawFlightDots(data.flights || []);
+                
+                // Check for emergency squawk codes in flights
+                checkForEmergencyAlerts(data.flights || []);
             } catch (err) {
                 console.error('Error loading flights for map:', err);
                 // Clear canvas on error
@@ -502,11 +552,82 @@
             }
         }
 
+        async function loadEmergencyAlerts() {
+            try {
+                const response = await fetch('http://localhost:3005/api/v1/alerts/active');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                const alerts = data.alerts || {};
+                const alertCount = Object.keys(alerts).length;
+                
+                // Update emergency link badge
+                const emergencyLink = document.getElementById('emergency-link');
+                if (alertCount > 0) {
+                    const existingBadge = emergencyLink.querySelector('.alert-badge');
+                    if (existingBadge) {
+                        existingBadge.textContent = alertCount;
+                    } else {
+                        const badge = document.createElement('span');
+                        badge.className = 'alert-badge';
+                        badge.style.cssText = 'background: var(--danger-color); color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px; margin-left: 8px;';
+                        badge.textContent = alertCount;
+                        emergencyLink.appendChild(badge);
+                    }
+                } else {
+                    const badge = emergencyLink.querySelector('.alert-badge');
+                    if (badge) badge.remove();
+                }
+            } catch (err) {
+                // Silently fail - emergency-alert service might not be available
+                console.debug('Could not load emergency alerts:', err);
+            }
+        }
+
+        function checkForEmergencyAlerts(flights) {
+            const emergencySquawks = ['7700', '7500', '7600'];
+            const alertFlights = flights.filter(flight => {
+                const squawk = String(flight.squawk || '').trim();
+                return emergencySquawks.includes(squawk);
+            });
+
+            if (alertFlights.length > 0) {
+                // Show alert toast
+                const alertToast = document.getElementById('alert-toast');
+                const alertText = document.getElementById('alert-text');
+                
+                const squawkDescriptions = {
+                    '7700': 'General Emergency',
+                    '7500': 'Aircraft Hijacking',
+                    '7600': 'Radio Communication Failure'
+                };
+                
+                const firstAlert = alertFlights[0];
+                const squawk = String(firstAlert.squawk || '').trim();
+                const description = squawkDescriptions[squawk] || 'Emergency';
+                const callsign = (firstAlert.callsign || '').trim();
+                
+                alertText.textContent = `🚨 ${description} - ${callsign} (Squawk: ${squawk})`;
+                alertToast.classList.remove('hidden');
+                
+                // Auto-hide after 10 seconds
+                setTimeout(() => {
+                    alertToast.classList.add('hidden');
+                }, 10000);
+            } else {
+                // Hide alert toast if no alerts
+                const alertToast = document.getElementById('alert-toast');
+                alertToast.classList.add('hidden');
+            }
+        }
+
         async function loadData() {
             await Promise.all([
                 loadFleetStats(),
                 loadAirportArrivals(),
-                loadAllFlights()
+                loadAllFlights(),
+                loadEmergencyAlerts()
             ]);
         }
 

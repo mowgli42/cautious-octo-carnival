@@ -252,6 +252,7 @@ services:
   # Uses network_mode to share network with app container
   flight-archiver-dapr:
     image: "daprio/daprd:latest"
+    user: "0:0"  # Run as root to ensure write permissions
     command: [
       "./daprd",
       "-app-id", "flight-archiver",
@@ -275,6 +276,55 @@ services:
       flight-archiver:
         condition: service_started
     network_mode: "service:flight-archiver"
+
+  # Emergency Alert Service (Python)
+  emergency-alert:
+    build:
+      context: ./services/emergency-alert
+      dockerfile: Dockerfile
+    ports:
+      - "3005:3005"
+      - "3505:3505"  # Expose Dapr HTTP port for sidecar communication
+    environment:
+      - PORT=3005
+      - DAPR_HTTP_PORT=3505
+      - DAPR_HOST=0.0.0.0
+    depends_on:
+      redis:
+        condition: service_healthy
+      dapr-placement:
+        condition: service_started
+    networks:
+      - dapr-network
+
+  # Dapr sidecar for emergency-alert
+  # Uses network_mode to share network with app container
+  emergency-alert-dapr:
+    image: "daprio/daprd:latest"
+    user: "0:0"  # Run as root to ensure permissions
+    command: [
+      "./daprd",
+      "-app-id", "emergency-alert",
+      "-app-port", "3005",
+      "-dapr-http-port", "3505",
+      "-dapr-grpc-port", "50006",
+      "-components-path", "/components",
+      "-config", "/config/config.yaml",
+      "-placement-host-address", "dapr-placement:50006"
+    ]
+    volumes:
+      - ./components:/components
+      - ./config.yaml:/config/config.yaml:ro
+      - ./secrets:/secrets:ro
+      - data-volume:/data
+    depends_on:
+      redis:
+        condition: service_healthy
+      dapr-placement:
+        condition: service_started
+      emergency-alert:
+        condition: service_started
+    network_mode: "service:emergency-alert"
 
 volumes:
   redis-data:

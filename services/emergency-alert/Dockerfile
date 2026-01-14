@@ -10,13 +10,13 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY app.py .
 
 # Expose port
-EXPOSE 3004
+EXPOSE 3005
 
-# Set environment variables for Dapr
-ENV DAPR_HTTP_PORT=3504
-ENV DAPR_GRPC_PORT=50004
+# Set environment variables
+ENV PORT=3005
+ENV DAPR_HTTP_PORT=3505
+ENV DAPR_GRPC_PORT=50006
 
 # Run the application
 CMD ["python", "app.py"]
-
 
