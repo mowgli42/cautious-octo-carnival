@@ -44,7 +44,9 @@ function invokeDaprService(appId, methodPath, options = {}) {
       });
     });
     
-    req.on('error', reject);
+    req.on('error', (err) => {
+      reject(err);
+    });
     req.on('timeout', () => {
       req.destroy();
       reject(new Error('Request timeout'));

@@ -10,4 +10,10 @@ spec:
       value: redis:6379
     - name: redisPassword
       value: ""
+  scopes:
+    - fleet-stats
+    - airport-tracker
+    - flight-archiver
+    - emergency-alert
+    # Note: flight-dashboard does NOT use pubsub - it only uses Service Invocation
 
