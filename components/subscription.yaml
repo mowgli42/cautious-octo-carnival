@@ -7,8 +7,9 @@ spec:
   routes:
     default: /flight-update
   pubsubname: pubsub
-  scopes:
-    - fleet-stats
-    - airport-tracker
+scopes:
+  - fleet-stats
+  - airport-tracker
+  - flight-archiver
     # Note: flight-dashboard does NOT subscribe - it uses Service Invocation only
 

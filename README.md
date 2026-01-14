@@ -20,6 +20,14 @@ The focus is on simplicity: minimal code, straightforward setup, and clear examp
 
 **Note:** No need to install Node.js, Python, Go, or Dapr CLI locally - everything runs in Docker containers. The demo uses mock data by default, so no API keys are required.
 
+## Data Feed Modes
+
+### Mock Mode (Default)
+The demo uses mock/synthetic flight data by default. No API keys or external services required. Perfect for demos, development, and testing.
+
+### Real API Mode (Future)
+Real OpenSky Network API integration is planned for Phase 6. See [DAPR_DEMO_PLAN.md](DAPR_DEMO_PLAN.md) for details.
+
 ## Installation
 
 1. Clone the repository:

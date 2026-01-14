@@ -88,6 +88,8 @@ The user interface SHALL be a single-page "Map-First" application.
 ### Requirement: Mock Feeder Mode
 The `adsb-feeder` service SHALL support a configurable "Mock Mode" that generates synthetic flight data instead of connecting to the live API.
 
+**Note:** Real OpenSky Network API integration is planned for Phase 6. Mock mode is the default to ensure demo reliability.
+
 #### Scenario: Mock Data Generation
 - WHEN the service is started with `MOCK_MODE=true`
 - THEN it must ignore external API credentials

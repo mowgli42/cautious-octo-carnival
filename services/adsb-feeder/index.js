@@ -148,6 +148,7 @@ async function publishFlightUpdates() {
       flightUpdates = mockGenerator.generateFlights();
     } else {
       // TODO: In real mode, fetch from OpenSky Network API
+      // Real API integration planned for Phase 6 - see DAPR_DEMO_PLAN.md
       console.log('Real API mode not yet implemented - using mock mode');
       if (!mockGenerator) {
         mockGenerator = new MockFlightGenerator();

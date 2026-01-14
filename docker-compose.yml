@@ -228,6 +228,54 @@ services:
         condition: service_started
     network_mode: "service:airport-tracker"
 
+  # Flight Archiver Service (Python)
+  flight-archiver:
+    build:
+      context: ./services/flight-archiver
+      dockerfile: Dockerfile
+    ports:
+      - "3004:3004"
+      - "3504:3504"  # Expose Dapr HTTP port for sidecar communication
+    environment:
+      - PORT=3004
+      - DAPR_HTTP_PORT=3504
+      - DAPR_HOST=0.0.0.0
+    depends_on:
+      redis:
+        condition: service_healthy
+      dapr-placement:
+        condition: service_started
+    networks:
+      - dapr-network
+
+  # Dapr sidecar for flight-archiver
+  # Uses network_mode to share network with app container
+  flight-archiver-dapr:
+    image: "daprio/daprd:latest"
+    command: [
+      "./daprd",
+      "-app-id", "flight-archiver",
+      "-app-port", "3004",
+      "-dapr-http-port", "3504",
+      "-dapr-grpc-port", "50005",
+      "-components-path", "/components",
+      "-config", "/config/config.yaml",
+      "-placement-host-address", "dapr-placement:50006"
+    ]
+    volumes:
+      - ./components:/components
+      - ./config.yaml:/config/config.yaml:ro
+      - ./secrets:/secrets:ro
+      - data-volume:/data
+    depends_on:
+      redis:
+        condition: service_healthy
+      dapr-placement:
+        condition: service_started
+      flight-archiver:
+        condition: service_started
+    network_mode: "service:flight-archiver"
+
 volumes:
   redis-data:
   data-volume:

@@ -101,11 +101,86 @@ dapr_client = DaprClient(address="http://localhost", http_port=DAPR_HTTP_PORT)
 - Ensure all component references are valid before starting services
 
 **Best Practice:** Create a startup checklist that includes:
+
+### 6. Container Startup Sequence and Health Checks
+
+**Issue:** Dapr sidecars were attempting to connect to Redis before Redis finished loading AOF (Append-Only File) data, causing initialization failures with error: "LOADING Redis is loading the dataset in memory".
+
+**Solution:** Use Docker Compose health checks and conditional dependencies:
+- Add healthcheck to Redis service (pings Redis every 1s, 30 retries, 5s start period)
+- Use `depends_on` with `condition: service_healthy` for Redis (not just `service_started`)
+- This ensures services wait until Redis is actually ready to accept connections, not just when the container starts
+
+```yaml
+redis:
+  image: redis:7-alpine
+  command: redis-server --appendonly yes
+  healthcheck:
+    test: ["CMD", "redis-cli", "ping"]
+    interval: 1s
+    timeout: 3s
+    retries: 30
+    start_period: 5s
+  # ... other config
+
+fleet-stats-dapr:
+  depends_on:
+    redis:
+      condition: service_healthy  # Wait for Redis to be healthy
+    dapr-placement:
+      condition: service_started  # Just wait for container to start
+```
+
+**Key Insight:** `depends_on: service_started` only waits for the container to start, not for the service inside to be ready. For services that need initialization time (like Redis loading AOF data), use health checks with `service_healthy`.
+
+**Best Practice:** 
+- Add health checks to infrastructure services (Redis, databases, etc.)
+- Use `service_healthy` condition for services that need to be ready (Redis, databases)
+- Use `service_started` for services that start quickly (dapr-placement, stateless services)
+- Start period in health checks gives services time to initialize before checks begin
+
+### 7. HTTP vs gRPC Interface Selection
+
+**Issue:** Understanding when to use HTTP vs gRPC for Dapr communication, and how to configure each approach.
+
+**Decision:** We primarily use HTTP for Dapr communication in this demo, but understanding both is important:
+
+**HTTP (Our Primary Choice):**
+- Simpler and more transparent
+- Direct HTTP API calls to Dapr sidecar: `http://localhost:<DAPR_HTTP_PORT>/v1.0/invoke/<app-id>/method/<path>`
+- Works well for RESTful service invocation
+- Easy to debug with curl or browser
+- Lower overhead for simple operations
+- Used in: `flight-dashboard` (Service Invocation), all sidecars (HTTP port exposed)
+
+**gRPC (Available but Not Used):**
+- More efficient for high-throughput scenarios
+- Binary protocol, lower latency
+- Better for streaming and bidirectional communication
+- Requires gRPC client libraries
+- Used in: Dapr sidecars internally (placement service uses gRPC), state store operations (some SDKs use gRPC under the hood)
+
+**Configuration:**
+- Dapr sidecars expose both HTTP and gRPC ports by default
+- HTTP port: `-dapr-http-port` (e.g., 3500-3503)
+- gRPC port: `-dapr-grpc-port` (e.g., 50001-50004)
+- Python SDK (`dapr`) uses HTTP by default (reads `DAPR_HTTP_PORT` from environment)
+- Node.js SDK (`@dapr/dapr`) supports both HTTP and gRPC
+- Go SDK supports both HTTP and gRPC
+
+**Best Practice:** 
+- Start with HTTP for simplicity and transparency
+- Use gRPC when you need higher performance or specific gRPC features
+- For most demos and standard microservices, HTTP is sufficient
+- Document which interface is used in each service
+- Consider SDK capabilities when choosing (some SDKs default to HTTP, others to gRPC)
+
+**Best Practice:** Create a startup checklist that includes:
 - [ ] `secrets/secrets.json` exists
 - [ ] Data volumes created
 - [ ] All component YAML files reference valid paths
 
-### 6. Sidecar Readiness
+### 8. Sidecar Readiness
 
 **Issue:** Applications trying to use Dapr immediately on startup fail because sidecar isn't ready yet.
 
@@ -124,7 +199,7 @@ dapr_client = DaprClient(address="http://localhost", http_port=DAPR_HTTP_PORT)
 
 **Note:** See `DAPR_SIDECAR_READINESS.md` for detailed explanation of why SDK readiness methods are discouraged.
 
-### 7. Component Configuration Consistency
+### 9. Component Configuration Consistency
 
 **Issue:** Component configurations must match between:
 - Component YAML files
