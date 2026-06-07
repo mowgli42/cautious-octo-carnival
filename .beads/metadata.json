@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "cautious_octo_carnival",
+  "project_id": "47472918-c385-4663-99ca-86e6ee44a6b2"
+}
